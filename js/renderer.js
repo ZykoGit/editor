@@ -5,6 +5,7 @@ import { Mat4 } from "./math.js";
 export const Renderer = {
     gl: null,
     program: null,
+    highlightProgram: null,
     gridProgram: null,
     canvas: null,
 
@@ -28,13 +29,16 @@ export const Renderer = {
         this.resize();
         window.addEventListener("resize", () => this.resize());
 
-        // Main shader
         this.program = this.createProgram(
             this.vertexShaderSource(),
             this.fragmentShaderSource()
         );
 
-        // Grid shader
+        this.highlightProgram = this.createProgram(
+            this.vertexShaderSource(),
+            this.highlightFragmentShader()
+        );
+
         this.gridProgram = this.createProgram(
             this.gridVertexShader(),
             this.gridFragmentShader()
@@ -108,11 +112,9 @@ export const Renderer = {
         const half = size / 2;
 
         for (let i = -half; i <= half; i++) {
-            // Vertical lines
             lines.push(i, 0, -half);
             lines.push(i, 0, half);
 
-            // Horizontal lines
             lines.push(-half, 0, i);
             lines.push(half, 0, i);
         }
@@ -149,15 +151,21 @@ export const Renderer = {
         gl.bindVertexArray(grid.vao);
         gl.drawArrays(gl.LINES, 0, grid.count);
         gl.bindVertexArray(null);
-
-        gl.useProgram(this.program);
     },
 
-    drawMesh(mesh, modelMatrix) {
+    drawCube(mesh, modelMatrix, selected) {
         const gl = this.gl;
 
-        const uModel = gl.getUniformLocation(this.program, "uModel");
+        const program = selected ? this.highlightProgram : this.program;
+        gl.useProgram(program);
+
+        const uModel = gl.getUniformLocation(program, "uModel");
+        const uProjection = gl.getUniformLocation(program, "uProjection");
+        const uView = gl.getUniformLocation(program, "uView");
+
         gl.uniformMatrix4fv(uModel, false, modelMatrix);
+        gl.uniformMatrix4fv(uProjection, false, this.getProjectionMatrix());
+        gl.uniformMatrix4fv(uView, false, this.getViewMatrix());
 
         gl.bindVertexArray(mesh.vao);
         gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
@@ -190,6 +198,16 @@ export const Renderer = {
 
         void main() {
             gl_FragColor = vec4(vUV, 1.0, 1.0);
+        }
+        `;
+    },
+
+    highlightFragmentShader() {
+        return `
+        precision mediump float;
+
+        void main() {
+            gl_FragColor = vec4(1.0, 0.8, 0.2, 1.0);
         }
         `;
     },
