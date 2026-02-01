@@ -8,44 +8,57 @@ export class Cube {
         this.rotation = { x: 0, y: 0, z: 0 };
         this.scale = { x: 1, y: 1, z: 1 };
 
+        // NEW: dimensions
+        this.lengthX = 2;
+        this.lengthY = 2;
+        this.lengthZ = 2;
+
         this.modelMatrix = Mat4.identity();
+
+        this.generateGeometry();
+    }
+
+    generateGeometry() {
+        const lx = this.lengthX / 2;
+        const ly = this.lengthY / 2;
+        const lz = this.lengthZ / 2;
 
         this.vertices = new Float32Array([
             // Front
-            -1, -1,  1,  0, 0,
-             1, -1,  1,  1, 0,
-             1,  1,  1,  1, 1,
-            -1,  1,  1,  0, 1,
+            -lx, -ly,  lz,  0, 0,
+             lx, -ly,  lz,  1, 0,
+             lx,  ly,  lz,  1, 1,
+            -lx,  ly,  lz,  0, 1,
 
             // Back
-            -1, -1, -1,  1, 0,
-             1, -1, -1,  0, 0,
-             1,  1, -1,  0, 1,
-            -1,  1, -1,  1, 1,
+            -lx, -ly, -lz,  1, 0,
+             lx, -ly, -lz,  0, 0,
+             lx,  ly, -lz,  0, 1,
+            -lx,  ly, -lz,  1, 1,
 
             // Left
-            -1, -1, -1,  0, 0,
-            -1, -1,  1,  1, 0,
-            -1,  1,  1,  1, 1,
-            -1,  1, -1,  0, 1,
+            -lx, -ly, -lz,  0, 0,
+            -lx, -ly,  lz,  1, 0,
+            -lx,  ly,  lz,  1, 1,
+            -lx,  ly, -lz,  0, 1,
 
             // Right
-             1, -1, -1,  1, 0,
-             1, -1,  1,  0, 0,
-             1,  1,  1,  0, 1,
-             1,  1, -1,  1, 1,
+             lx, -ly, -lz,  1, 0,
+             lx, -ly,  lz,  0, 0,
+             lx,  ly,  lz,  0, 1,
+             lx,  ly, -lz,  1, 1,
 
             // Top
-            -1,  1,  1,  0, 0,
-             1,  1,  1,  1, 0,
-             1,  1, -1,  1, 1,
-            -1,  1, -1,  0, 1,
+            -lx,  ly,  lz,  0, 0,
+             lx,  ly,  lz,  1, 0,
+             lx,  ly, -lz,  1, 1,
+            -lx,  ly, -lz,  0, 1,
 
             // Bottom
-            -1, -1,  1,  0, 0,
-             1, -1,  1,  1, 0,
-             1, -1, -1,  1, 1,
-            -1, -1, -1,  0, 1,
+            -lx, -ly,  lz,  0, 0,
+             lx, -ly,  lz,  1, 0,
+             lx, -ly, -lz,  1, 1,
+            -lx, -ly, -lz,  0, 1,
         ]);
 
         this.indices = new Uint16Array([
