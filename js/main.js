@@ -11,7 +11,9 @@ let isDragging = false;
 let lastX = 0;
 let lastY = 0;
 
-let mode = "none"; // "move", "rotate", "scale"
+let mode = "none";
+
+let ui = {};
 
 window.onload = () => {
     const canvas = document.getElementById("glcanvas");
@@ -21,6 +23,28 @@ window.onload = () => {
     cubeMesh = Renderer.createMesh(cube.vertices, cube.indices);
 
     grid = Renderer.createGridMesh(40);
+
+    ui.posX = document.getElementById("posX");
+    ui.posY = document.getElementById("posY");
+    ui.posZ = document.getElementById("posZ");
+
+    ui.rotX = document.getElementById("rotX");
+    ui.rotY = document.getElementById("rotY");
+    ui.rotZ = document.getElementById("rotZ");
+
+    ui.scaleX = document.getElementById("scaleX");
+    ui.scaleY = document.getElementById("scaleY");
+    ui.scaleZ = document.getElementById("scaleZ");
+
+    ui.lenX = document.getElementById("lenX");
+    ui.lenY = document.getElementById("lenY");
+    ui.lenZ = document.getElementById("lenZ");
+
+    updateUI();
+
+    for (let key in ui) {
+        ui[key].addEventListener("input", applyUI);
+    }
 
     canvas.addEventListener("mousedown", e => {
         isDragging = true;
@@ -54,6 +78,8 @@ window.onload = () => {
             cube.scale.z += dx;
         }
 
+        updateUI();
+
         lastX = e.clientX;
         lastY = e.clientY;
     });
@@ -67,6 +93,42 @@ window.onload = () => {
 
     requestAnimationFrame(loop);
 };
+
+function applyUI() {
+    cube.position.x = parseFloat(ui.posX.value);
+    cube.position.y = parseFloat(ui.posY.value);
+    cube.position.z = parseFloat(ui.posZ.value);
+
+    cube.rotation.x = parseFloat(ui.rotX.value);
+    cube.rotation.y = parseFloat(ui.rotY.value);
+    cube.rotation.z = parseFloat(ui.rotZ.value);
+
+    cube.scale.x = parseFloat(ui.scaleX.value);
+    cube.scale.y = parseFloat(ui.scaleY.value);
+    cube.scale.z = parseFloat(ui.scaleZ.value);
+
+    cube.lengthX = parseFloat(ui.lenX.value);
+    cube.lengthY = parseFloat(ui.lenY.value);
+    cube.lengthZ = parseFloat(ui.lenZ.value);
+}
+
+function updateUI() {
+    ui.posX.value = cube.position.x.toFixed(2);
+    ui.posY.value = cube.position.y.toFixed(2);
+    ui.posZ.value = cube.position.z.toFixed(2);
+
+    ui.rotX.value = cube.rotation.x.toFixed(2);
+    ui.rotY.value = cube.rotation.y.toFixed(2);
+    ui.rotZ.value = cube.rotation.z.toFixed(2);
+
+    ui.scaleX.value = cube.scale.x.toFixed(2);
+    ui.scaleY.value = cube.scale.y.toFixed(2);
+    ui.scaleZ.value = cube.scale.z.toFixed(2);
+
+    ui.lenX.value = cube.lengthX?.toFixed(2) ?? "1.00";
+    ui.lenY.value = cube.lengthY?.toFixed(2) ?? "1.00";
+    ui.lenZ.value = cube.lengthZ?.toFixed(2) ?? "1.00";
+}
 
 function loop() {
     const gl = Renderer.gl;
