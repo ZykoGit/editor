@@ -9,6 +9,8 @@ export class Cube {
         this.id = nextID++;
         this.selected = false;
 
+        this.bone = null; // NEW
+
         this.position = { x: 0, y: 1, z: 0 };
         this.rotation = { x: 0, y: 0, z: 0 };
         this.scale = { x: 1, y: 1, z: 1 };
@@ -83,6 +85,11 @@ export class Cube {
         m = Mat4.multiply(m, Mat4.rotationZ(this.rotation.z));
 
         m = Mat4.multiply(m, Mat4.scale(this.scale.x, this.scale.y, this.scale.z));
+
+        if (this.bone) {
+            this.bone.updateMatrix();
+            m = Mat4.multiply(this.bone.modelMatrix, m);
+        }
 
         this.modelMatrix = m;
     }
