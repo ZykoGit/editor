@@ -107,9 +107,19 @@ function applyUI() {
     cube.scale.y = parseFloat(ui.scaleY.value);
     cube.scale.z = parseFloat(ui.scaleZ.value);
 
+    const oldX = cube.lengthX;
+    const oldY = cube.lengthY;
+    const oldZ = cube.lengthZ;
+
     cube.lengthX = parseFloat(ui.lenX.value);
     cube.lengthY = parseFloat(ui.lenY.value);
     cube.lengthZ = parseFloat(ui.lenZ.value);
+
+    // If dimensions changed, rebuild geometry + mesh
+    if (cube.lengthX !== oldX || cube.lengthY !== oldY || cube.lengthZ !== oldZ) {
+        cube.generateGeometry();
+        cubeMesh = Renderer.createMesh(cube.vertices, cube.indices);
+    }
 }
 
 function updateUI() {
@@ -125,9 +135,9 @@ function updateUI() {
     ui.scaleY.value = cube.scale.y.toFixed(2);
     ui.scaleZ.value = cube.scale.z.toFixed(2);
 
-    ui.lenX.value = cube.lengthX?.toFixed(2) ?? "1.00";
-    ui.lenY.value = cube.lengthY?.toFixed(2) ?? "1.00";
-    ui.lenZ.value = cube.lengthZ?.toFixed(2) ?? "1.00";
+    ui.lenX.value = cube.lengthX.toFixed(2);
+    ui.lenY.value = cube.lengthY.toFixed(2);
+    ui.lenZ.value = cube.lengthZ.toFixed(2);
 }
 
 function loop() {
