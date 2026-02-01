@@ -2,8 +2,10 @@
 
 import { Renderer } from "./renderer.js";
 import { Cube } from "./cube.js";
+import { Bone } from "./bone.js";
 
 let scene = [];
+let bones = [];
 let selected = null;
 
 let grid;
@@ -21,6 +23,9 @@ window.onload = () => {
     Renderer.init(canvas);
 
     grid = Renderer.createGridMesh(40);
+
+    // Create root bone
+    addBone("Root");
 
     // Add first cube
     addCube();
@@ -42,17 +47,26 @@ window.onload = () => {
     ui.lenY = document.getElementById("lenY");
     ui.lenZ = document.getElementById("lenZ");
 
+    ui.boneSelect = document.getElementById("boneSelect");
+
     document.getElementById("addCube").onclick = addCube;
 
+    ui.boneSelect.onchange = () => {
+        if (selected) {
+            const boneID = parseInt(ui.boneSelect.value);
+            selected.bone = bones.find(b => b.id === boneID);
+        }
+    };
+
     for (let key in ui) {
-        ui[key].addEventListener("input", applyUI);
+        if (ui[key] instanceof HTMLInputElement) {
+            ui[key].addEventListener("input", applyUI);
+        }
     }
 
     // Mouse picking
     canvas.addEventListener("mousedown", e => {
-        if (mode === "none") {
-            pickCube(e.clientX, e.clientY);
-        }
+        if (mode === "none") pickCube(e.clientX, e.clientY);
 
         isDragging = true;
         lastX = e.clientX;
@@ -102,12 +116,32 @@ window.onload = () => {
     requestAnimationFrame(loop);
 };
 
+function addBone(name) {
+    const bone = new Bone(name);
+    bones.push(bone);
+    refreshBoneDropdown();
+    return bone;
+}
+
+function refreshBoneDropdown() {
+    ui.boneSelect.innerHTML = "";
+    for (let bone of bones) {
+        const opt = document.createElement("option");
+        opt.value = bone.id;
+        opt.textContent = bone.name;
+        ui.boneSelect.appendChild(opt);
+    }
+}
+
 function addCube() {
     const cube = new Cube();
     cube.position.x = Math.random() * 4 - 2;
     cube.position.z = Math.random() * 4 - 2;
 
     cube.mesh = Renderer.createMesh(cube.vertices, cube.indices);
+
+    // Assign cube to root bone
+    cube.bone = bones[0];
 
     scene.push(cube);
     selectCube(cube);
@@ -173,6 +207,10 @@ function applyUI() {
         selected.generateGeometry();
         selected.mesh = Renderer.createMesh(selected.vertices, selected.indices);
     }
+
+    if (selected.bone) {
+        ui.boneSelect.value = selected.bone.id;
+    }
 }
 
 function updateUI() {
@@ -193,6 +231,10 @@ function updateUI() {
     ui.lenX.value = selected.lengthX.toFixed(2);
     ui.lenY.value = selected.lengthY.toFixed(2);
     ui.lenZ.value = selected.lengthZ.toFixed(2);
+
+    if (selected.bone) {
+        ui.boneSelect.value = selected.bone.id;
+    }
 }
 
 function loop() {
@@ -201,11 +243,16 @@ function loop() {
     gl.clearColor(0.1, 0.1, 0.1, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+    // Update bone hierarchy
+    for (let bone of bones) {
+        if (!bone.parent) bone.updateMatrix();
+    }
+
     Renderer.drawGrid(grid);
 
     for (let cube of scene) {
         cube.updateMatrix();
-        Renderer.drawCube(cube.mesh, cube.modelMatrix, cube.selected);
+        Renderer.drawCube(cube.mesh, cube.finalMatrix, cube.selected);
     }
 
     requestAnimationFrame(loop);
