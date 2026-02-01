@@ -5,6 +5,7 @@ import { Cube } from "./cube.js";
 
 let cube;
 let cubeMesh;
+let grid;
 
 let isDragging = false;
 let lastX = 0;
@@ -16,6 +17,8 @@ window.onload = () => {
 
     cube = new Cube();
     cubeMesh = Renderer.createMesh(cube.vertices, cube.indices);
+
+    grid = Renderer.createGridMesh(40);
 
     canvas.addEventListener("mousedown", e => {
         isDragging = true;
@@ -85,6 +88,7 @@ function loop() {
     gl.uniformMatrix4fv(uProjection, false, Renderer.getProjectionMatrix());
     gl.uniformMatrix4fv(uView, false, Renderer.getViewMatrix());
 
+    Renderer.drawGrid(grid);
     Renderer.drawMesh(cubeMesh, cube.modelMatrix);
 
     requestAnimationFrame(loop);
