@@ -2,13 +2,17 @@
 
 import { Mat4 } from "./math.js";
 
+let nextID = 1;
+
 export class Cube {
     constructor() {
+        this.id = nextID++;
+        this.selected = false;
+
         this.position = { x: 0, y: 1, z: 0 };
         this.rotation = { x: 0, y: 0, z: 0 };
         this.scale = { x: 1, y: 1, z: 1 };
 
-        // NEW: dimensions
         this.lengthX = 2;
         this.lengthY = 2;
         this.lengthZ = 2;
