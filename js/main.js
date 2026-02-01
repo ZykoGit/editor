@@ -3,8 +3,9 @@
 import { Renderer } from "./renderer.js";
 import { Cube } from "./cube.js";
 
-let cube;
-let cubeMesh;
+let scene = [];
+let selected = null;
+
 let grid;
 
 let isDragging = false;
@@ -19,11 +20,12 @@ window.onload = () => {
     const canvas = document.getElementById("glcanvas");
     Renderer.init(canvas);
 
-    cube = new Cube();
-    cubeMesh = Renderer.createMesh(cube.vertices, cube.indices);
-
     grid = Renderer.createGridMesh(40);
 
+    // Add first cube
+    addCube();
+
+    // UI elements
     ui.posX = document.getElementById("posX");
     ui.posY = document.getElementById("posY");
     ui.posZ = document.getElementById("posZ");
@@ -40,13 +42,18 @@ window.onload = () => {
     ui.lenY = document.getElementById("lenY");
     ui.lenZ = document.getElementById("lenZ");
 
-    updateUI();
+    document.getElementById("addCube").onclick = addCube;
 
     for (let key in ui) {
         ui[key].addEventListener("input", applyUI);
     }
 
+    // Mouse picking
     canvas.addEventListener("mousedown", e => {
+        if (mode === "none") {
+            pickCube(e.clientX, e.clientY);
+        }
+
         isDragging = true;
         lastX = e.clientX;
         lastY = e.clientY;
@@ -57,25 +64,25 @@ window.onload = () => {
     });
 
     window.addEventListener("mousemove", e => {
-        if (!isDragging) return;
+        if (!isDragging || !selected) return;
 
         const dx = (e.clientX - lastX) * 0.01;
         const dy = (e.clientY - lastY) * 0.01;
 
         if (mode === "move") {
-            cube.position.x += dx;
-            cube.position.z += dy;
+            selected.position.x += dx;
+            selected.position.z += dy;
         }
 
         if (mode === "rotate") {
-            cube.rotation.y += dx;
-            cube.rotation.x += dy;
+            selected.rotation.y += dx;
+            selected.rotation.x += dy;
         }
 
         if (mode === "scale") {
-            cube.scale.x += dx;
-            cube.scale.y += dx;
-            cube.scale.z += dx;
+            selected.scale.x += dx;
+            selected.scale.y += dx;
+            selected.scale.z += dx;
         }
 
         updateUI();
@@ -84,6 +91,7 @@ window.onload = () => {
         lastY = e.clientY;
     });
 
+    // Keyboard shortcuts
     window.addEventListener("keydown", e => {
         if (e.key === "g") mode = "move";
         if (e.key === "r") mode = "rotate";
@@ -94,50 +102,97 @@ window.onload = () => {
     requestAnimationFrame(loop);
 };
 
+function addCube() {
+    const cube = new Cube();
+    cube.position.x = Math.random() * 4 - 2;
+    cube.position.z = Math.random() * 4 - 2;
+
+    cube.mesh = Renderer.createMesh(cube.vertices, cube.indices);
+
+    scene.push(cube);
+    selectCube(cube);
+}
+
+function selectCube(cube) {
+    if (selected) selected.selected = false;
+
+    selected = cube;
+    selected.selected = true;
+
+    updateUI();
+}
+
+function pickCube(mouseX, mouseY) {
+    const rect = Renderer.canvas.getBoundingClientRect();
+
+    const x = (mouseX - rect.left) / rect.width * 2 - 1;
+    const y = -((mouseY - rect.top) / rect.height * 2 - 1);
+
+    let closest = null;
+    let closestDist = Infinity;
+
+    for (let cube of scene) {
+        const dx = x - cube.position.x * 0.1;
+        const dy = y - cube.position.y * 0.1;
+
+        const dist = dx * dx + dy * dy;
+
+        if (dist < closestDist) {
+            closestDist = dist;
+            closest = cube;
+        }
+    }
+
+    if (closest) selectCube(closest);
+}
+
 function applyUI() {
-    cube.position.x = parseFloat(ui.posX.value);
-    cube.position.y = parseFloat(ui.posY.value);
-    cube.position.z = parseFloat(ui.posZ.value);
+    if (!selected) return;
 
-    cube.rotation.x = parseFloat(ui.rotX.value);
-    cube.rotation.y = parseFloat(ui.rotY.value);
-    cube.rotation.z = parseFloat(ui.rotZ.value);
+    selected.position.x = parseFloat(ui.posX.value);
+    selected.position.y = parseFloat(ui.posY.value);
+    selected.position.z = parseFloat(ui.posZ.value);
 
-    cube.scale.x = parseFloat(ui.scaleX.value);
-    cube.scale.y = parseFloat(ui.scaleY.value);
-    cube.scale.z = parseFloat(ui.scaleZ.value);
+    selected.rotation.x = parseFloat(ui.rotX.value);
+    selected.rotation.y = parseFloat(ui.rotY.value);
+    selected.rotation.z = parseFloat(ui.rotZ.value);
 
-    const oldX = cube.lengthX;
-    const oldY = cube.lengthY;
-    const oldZ = cube.lengthZ;
+    selected.scale.x = parseFloat(ui.scaleX.value);
+    selected.scale.y = parseFloat(ui.scaleY.value);
+    selected.scale.z = parseFloat(ui.scaleZ.value);
 
-    cube.lengthX = parseFloat(ui.lenX.value);
-    cube.lengthY = parseFloat(ui.lenY.value);
-    cube.lengthZ = parseFloat(ui.lenZ.value);
+    const oldX = selected.lengthX;
+    const oldY = selected.lengthY;
+    const oldZ = selected.lengthZ;
 
-    // If dimensions changed, rebuild geometry + mesh
-    if (cube.lengthX !== oldX || cube.lengthY !== oldY || cube.lengthZ !== oldZ) {
-        cube.generateGeometry();
-        cubeMesh = Renderer.createMesh(cube.vertices, cube.indices);
+    selected.lengthX = parseFloat(ui.lenX.value);
+    selected.lengthY = parseFloat(ui.lenY.value);
+    selected.lengthZ = parseFloat(ui.lenZ.value);
+
+    if (selected.lengthX !== oldX || selected.lengthY !== oldY || selected.lengthZ !== oldZ) {
+        selected.generateGeometry();
+        selected.mesh = Renderer.createMesh(selected.vertices, selected.indices);
     }
 }
 
 function updateUI() {
-    ui.posX.value = cube.position.x.toFixed(2);
-    ui.posY.value = cube.position.y.toFixed(2);
-    ui.posZ.value = cube.position.z.toFixed(2);
+    if (!selected) return;
 
-    ui.rotX.value = cube.rotation.x.toFixed(2);
-    ui.rotY.value = cube.rotation.y.toFixed(2);
-    ui.rotZ.value = cube.rotation.z.toFixed(2);
+    ui.posX.value = selected.position.x.toFixed(2);
+    ui.posY.value = selected.position.y.toFixed(2);
+    ui.posZ.value = selected.position.z.toFixed(2);
 
-    ui.scaleX.value = cube.scale.x.toFixed(2);
-    ui.scaleY.value = cube.scale.y.toFixed(2);
-    ui.scaleZ.value = cube.scale.z.toFixed(2);
+    ui.rotX.value = selected.rotation.x.toFixed(2);
+    ui.rotY.value = selected.rotation.y.toFixed(2);
+    ui.rotZ.value = selected.rotation.z.toFixed(2);
 
-    ui.lenX.value = cube.lengthX.toFixed(2);
-    ui.lenY.value = cube.lengthY.toFixed(2);
-    ui.lenZ.value = cube.lengthZ.toFixed(2);
+    ui.scaleX.value = selected.scale.x.toFixed(2);
+    ui.scaleY.value = selected.scale.y.toFixed(2);
+    ui.scaleZ.value = selected.scale.z.toFixed(2);
+
+    ui.lenX.value = selected.lengthX.toFixed(2);
+    ui.lenY.value = selected.lengthY.toFixed(2);
+    ui.lenZ.value = selected.lengthZ.toFixed(2);
 }
 
 function loop() {
@@ -146,10 +201,12 @@ function loop() {
     gl.clearColor(0.1, 0.1, 0.1, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    cube.updateMatrix();
-
     Renderer.drawGrid(grid);
-    Renderer.drawMesh(cubeMesh, cube.modelMatrix);
+
+    for (let cube of scene) {
+        cube.updateMatrix();
+        Renderer.drawCube(cube.mesh, cube.modelMatrix, cube.selected);
+    }
 
     requestAnimationFrame(loop);
 }
