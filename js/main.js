@@ -11,6 +11,8 @@ let isDragging = false;
 let lastX = 0;
 let lastY = 0;
 
+let mode = "none"; // "move", "rotate", "scale"
+
 window.onload = () => {
     const canvas = document.getElementById("glcanvas");
     Renderer.init(canvas);
@@ -33,43 +35,34 @@ window.onload = () => {
     window.addEventListener("mousemove", e => {
         if (!isDragging) return;
 
-        const dx = e.clientX - lastX;
-        const dy = e.clientY - lastY;
+        const dx = (e.clientX - lastX) * 0.01;
+        const dy = (e.clientY - lastY) * 0.01;
 
-        Renderer.camera.yaw += dx * 0.005;
-        Renderer.camera.pitch += dy * 0.005;
+        if (mode === "move") {
+            cube.position.x += dx;
+            cube.position.z += dy;
+        }
 
-        Renderer.camera.pitch = Math.max(-1.5, Math.min(1.5, Renderer.camera.pitch));
+        if (mode === "rotate") {
+            cube.rotation.y += dx;
+            cube.rotation.x += dy;
+        }
+
+        if (mode === "scale") {
+            cube.scale.x += dx;
+            cube.scale.y += dx;
+            cube.scale.z += dx;
+        }
 
         lastX = e.clientX;
         lastY = e.clientY;
     });
 
     window.addEventListener("keydown", e => {
-        const speed = 0.2;
-
-        const forwardX = Math.sin(Renderer.camera.yaw);
-        const forwardZ = Math.cos(Renderer.camera.yaw);
-
-        const rightX = Math.cos(Renderer.camera.yaw);
-        const rightZ = -Math.sin(Renderer.camera.yaw);
-
-        if (e.key === "w") {
-            Renderer.camera.x += forwardX * speed;
-            Renderer.camera.z += forwardZ * speed;
-        }
-        if (e.key === "s") {
-            Renderer.camera.x -= forwardX * speed;
-            Renderer.camera.z -= forwardZ * speed;
-        }
-        if (e.key === "a") {
-            Renderer.camera.x -= rightX * speed;
-            Renderer.camera.z -= rightZ * speed;
-        }
-        if (e.key === "d") {
-            Renderer.camera.x += rightX * speed;
-            Renderer.camera.z += rightZ * speed;
-        }
+        if (e.key === "g") mode = "move";
+        if (e.key === "r") mode = "rotate";
+        if (e.key === "s") mode = "scale";
+        if (e.key === "Escape") mode = "none";
     });
 
     requestAnimationFrame(loop);
@@ -77,16 +70,11 @@ window.onload = () => {
 
 function loop() {
     const gl = Renderer.gl;
-    const program = Renderer.program;
 
     gl.clearColor(0.1, 0.1, 0.1, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    const uProjection = gl.getUniformLocation(program, "uProjection");
-    const uView = gl.getUniformLocation(program, "uView");
-
-    gl.uniformMatrix4fv(uProjection, false, Renderer.getProjectionMatrix());
-    gl.uniformMatrix4fv(uView, false, Renderer.getViewMatrix());
+    cube.updateMatrix();
 
     Renderer.drawGrid(grid);
     Renderer.drawMesh(cubeMesh, cube.modelMatrix);
