@@ -5,6 +5,7 @@ import { Mat4 } from "./math.js";
 export const Renderer = {
     gl: null,
     program: null,
+    gridProgram: null,
     canvas: null,
 
     camera: {
@@ -27,12 +28,17 @@ export const Renderer = {
         this.resize();
         window.addEventListener("resize", () => this.resize());
 
+        // Main shader
         this.program = this.createProgram(
             this.vertexShaderSource(),
             this.fragmentShaderSource()
         );
 
-        this.gl.useProgram(this.program);
+        // Grid shader
+        this.gridProgram = this.createProgram(
+            this.gridVertexShader(),
+            this.gridFragmentShader()
+        );
 
         this.gl.enable(this.gl.DEPTH_TEST);
     },
@@ -95,6 +101,58 @@ export const Renderer = {
         return { vao, count: indices.length };
     },
 
+    createGridMesh(size = 40) {
+        const gl = this.gl;
+
+        const lines = [];
+        const half = size / 2;
+
+        for (let i = -half; i <= half; i++) {
+            // Vertical lines
+            lines.push(i, 0, -half);
+            lines.push(i, 0, half);
+
+            // Horizontal lines
+            lines.push(-half, 0, i);
+            lines.push(half, 0, i);
+        }
+
+        const vertices = new Float32Array(lines);
+
+        const vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+
+        const vbo = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+        const posLoc = gl.getAttribLocation(this.gridProgram, "position");
+        gl.enableVertexAttribArray(posLoc);
+        gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
+
+        gl.bindVertexArray(null);
+
+        return { vao, count: vertices.length / 3 };
+    },
+
+    drawGrid(grid) {
+        const gl = this.gl;
+
+        gl.useProgram(this.gridProgram);
+
+        const uProjection = gl.getUniformLocation(this.gridProgram, "uProjection");
+        const uView = gl.getUniformLocation(this.gridProgram, "uView");
+
+        gl.uniformMatrix4fv(uProjection, false, this.getProjectionMatrix());
+        gl.uniformMatrix4fv(uView, false, this.getViewMatrix());
+
+        gl.bindVertexArray(grid.vao);
+        gl.drawArrays(gl.LINES, 0, grid.count);
+        gl.bindVertexArray(null);
+
+        gl.useProgram(this.program);
+    },
+
     drawMesh(mesh, modelMatrix) {
         const gl = this.gl;
 
@@ -132,6 +190,29 @@ export const Renderer = {
 
         void main() {
             gl_FragColor = vec4(vUV, 1.0, 1.0);
+        }
+        `;
+    },
+
+    gridVertexShader() {
+        return `
+        attribute vec3 position;
+
+        uniform mat4 uProjection;
+        uniform mat4 uView;
+
+        void main() {
+            gl_Position = uProjection * uView * vec4(position, 1.0);
+        }
+        `;
+    },
+
+    gridFragmentShader() {
+        return `
+        precision mediump float;
+
+        void main() {
+            gl_FragColor = vec4(0.3, 0.3, 0.3, 1.0);
         }
         `;
     },
