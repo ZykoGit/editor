@@ -4,6 +4,10 @@ import { Mat4 } from "./math.js";
 
 export class Cube {
     constructor() {
+        this.position = { x: 0, y: 1, z: 0 };
+        this.rotation = { x: 0, y: 0, z: 0 };
+        this.scale = { x: 1, y: 1, z: 1 };
+
         this.modelMatrix = Mat4.identity();
 
         this.vertices = new Float32Array([
@@ -52,5 +56,17 @@ export class Cube {
             16,17,18, 18,19,16,
             20,21,22, 22,23,20
         ]);
+    }
+
+    updateMatrix() {
+        let m = Mat4.translation(this.position.x, this.position.y, this.position.z);
+
+        m = Mat4.multiply(m, Mat4.rotationX(this.rotation.x));
+        m = Mat4.multiply(m, Mat4.rotationY(this.rotation.y));
+        m = Mat4.multiply(m, Mat4.rotationZ(this.rotation.z));
+
+        m = Mat4.multiply(m, Mat4.scale(this.scale.x, this.scale.y, this.scale.z));
+
+        this.modelMatrix = m;
     }
 }
