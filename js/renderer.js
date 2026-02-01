@@ -172,6 +172,53 @@ export const Renderer = {
         gl.bindVertexArray(null);
     },
 
+drawBone(bone) {
+    const gl = this.gl;
+
+    const p = bone.modelMatrix;
+
+    const x = p[12];
+    const y = p[13];
+    const z = p[14];
+
+    const parent = bone.parent;
+
+    if (!parent) return;
+
+    const px = parent.modelMatrix[12];
+    const py = parent.modelMatrix[13];
+    const pz = parent.modelMatrix[14];
+
+    const line = new Float32Array([
+        px, py, pz,
+        x, y, z
+    ]);
+
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+
+    const vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, line, gl.STATIC_DRAW);
+
+    const posLoc = gl.getAttribLocation(this.gridProgram, "position");
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
+
+    gl.useProgram(this.gridProgram);
+
+    const uProjection = gl.getUniformLocation(this.gridProgram, "uProjection");
+    const uView = gl.getUniformLocation(this.gridProgram, "uView");
+
+    gl.uniformMatrix4fv(uProjection, false, this.getProjectionMatrix());
+    gl.uniformMatrix4fv(uView, false, this.getViewMatrix());
+
+    gl.drawArrays(gl.LINES, 0, 2);
+
+    gl.bindVertexArray(null);
+}
+
+    
     vertexShaderSource() {
         return `
         attribute vec3 position;
