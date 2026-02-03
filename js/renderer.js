@@ -7,6 +7,7 @@ export const Renderer = {
     program: null,
     highlightProgram: null,
     gridProgram: null,
+    gizmoProgram: null,
     canvas: null,
 
     camera: {
@@ -20,11 +21,6 @@ export const Renderer = {
     init(canvas) {
         this.canvas = canvas;
         this.gl = canvas.getContext("webgl");
-
-        if (!this.gl) {
-            alert("WebGL not supported");
-            return;
-        }
 
         this.resize();
         window.addEventListener("resize", () => this.resize());
@@ -40,6 +36,11 @@ export const Renderer = {
         );
 
         this.gridProgram = this.createProgram(
+            this.gridVertexShader(),
+            this.gridFragmentShader()
+        );
+
+        this.gizmoProgram = this.createProgram(
             this.gridVertexShader(),
             this.gridFragmentShader()
         );
@@ -67,11 +68,11 @@ export const Renderer = {
         const cy = this.camera.y;
         const cz = this.camera.z;
 
-        const dirX = Math.cos(this.camera.pitch) * Math.sin(this.camera.yaw);
-        const dirY = Math.sin(this.camera.pitch);
-        const dirZ = Math.cos(this.camera.pitch) * Math.cos(this.camera.yaw);
+        const dx = Math.cos(this.camera.pitch) * Math.sin(this.camera.yaw);
+        const dy = Math.sin(this.camera.pitch);
+        const dz = Math.cos(this.camera.pitch) * Math.cos(this.camera.yaw);
 
-        const target = [cx + dirX, cy + dirY, cz + dirZ];
+        const target = [cx + dx, cy + dy, cz + dz];
 
         return Mat4.lookAt([cx, cy, cz], target, [0, 1, 0]);
     },
@@ -144,9 +145,11 @@ export const Renderer = {
 
         const uProjection = gl.getUniformLocation(this.gridProgram, "uProjection");
         const uView = gl.getUniformLocation(this.gridProgram, "uView");
+        const uColor = gl.getUniformLocation(this.gridProgram, "uColor");
 
         gl.uniformMatrix4fv(uProjection, false, this.getProjectionMatrix());
         gl.uniformMatrix4fv(uView, false, this.getViewMatrix());
+        gl.uniform3f(uColor, 0.3, 0.3, 0.3);
 
         gl.bindVertexArray(grid.vao);
         gl.drawArrays(gl.LINES, 0, grid.count);
@@ -189,12 +192,10 @@ export const Renderer = {
         gl.uniformMatrix4fv(uProjection, false, this.getProjectionMatrix());
         gl.uniformMatrix4fv(uView, false, this.getViewMatrix());
 
-        if (uColor) {
-            if (selected) {
-                gl.uniform3f(uColor, 1.0, 0.8, 0.2);
-            } else {
-                gl.uniform3f(uColor, 0.6, 0.6, 0.6);
-            }
+        if (selected) {
+            gl.uniform3f(uColor, 1.0, 0.8, 0.2);
+        } else {
+            gl.uniform3f(uColor, 0.6, 0.6, 0.6);
         }
 
         gl.drawArrays(gl.LINES, 0, 2);
@@ -218,6 +219,35 @@ export const Renderer = {
 
         gl.bindVertexArray(mesh.vao);
         gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
+        gl.bindVertexArray(null);
+    },
+
+    drawGizmoLines(lines, color) {
+        const gl = this.gl;
+
+        const vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+
+        const vbo = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(lines), gl.STATIC_DRAW);
+
+        const posLoc = gl.getAttribLocation(this.gridProgram, "position");
+        gl.enableVertexAttribArray(posLoc);
+        gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
+
+        gl.useProgram(this.gridProgram);
+
+        const uProjection = gl.getUniformLocation(this.gridProgram, "uProjection");
+        const uView = gl.getUniformLocation(this.gridProgram, "uView");
+        const uColor = gl.getUniformLocation(this.gridProgram, "uColor");
+
+        gl.uniformMatrix4fv(uProjection, false, this.getProjectionMatrix());
+        gl.uniformMatrix4fv(uView, false, this.getViewMatrix());
+        gl.uniform3f(uColor, color[0], color[1], color[2]);
+
+        gl.drawArrays(gl.LINES, 0, lines.length / 3);
+
         gl.bindVertexArray(null);
     },
 
@@ -290,11 +320,6 @@ export const Renderer = {
         const shader = this.gl.createShader(type);
         this.gl.shaderSource(shader, source);
         this.gl.compileShader(shader);
-
-        if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-            console.error("Shader error:", this.gl.getShaderInfoLog(shader));
-        }
-
         return shader;
     },
 
