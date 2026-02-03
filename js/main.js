@@ -218,10 +218,17 @@ function selectBone(bone) {
     bone.selected = true;
 
     ui.boneEditSelect.value = bone.id;
-    if (bone.parent) {
-        ui.boneParentSelect.value = bone.parent.id;
-    }
+    if (bone.parent) ui.boneParentSelect.value = bone.parent.id;
+
+    ui.bonePosX.value = bone.position.x.toFixed(2);
+    ui.bonePosY.value = bone.position.y.toFixed(2);
+    ui.bonePosZ.value = bone.position.z.toFixed(2);
+
+    ui.boneRotX.value = bone.rotation.x.toFixed(2);
+    ui.boneRotY.value = bone.rotation.y.toFixed(2);
+    ui.boneRotZ.value = bone.rotation.z.toFixed(2);
 }
+
 
 function pickBone(mouseX, mouseY) {
     const rect = Renderer.canvas.getBoundingClientRect();
@@ -337,6 +344,20 @@ function updateCubeUI() {
     if (selectedCube.bone) {
         ui.boneSelect.value = selectedCube.bone.id;
     }
+}
+
+function applyBoneUI() {
+    if (!selectedBone) return;
+
+    selectedBone.position.x = parseFloat(ui.bonePosX.value);
+    selectedBone.position.y = parseFloat(ui.bonePosY.value);
+    selectedBone.position.z = parseFloat(ui.bonePosZ.value);
+
+    selectedBone.rotation.x = parseFloat(ui.boneRotX.value);
+    selectedBone.rotation.y = parseFloat(ui.boneRotY.value);
+    selectedBone.rotation.z = parseFloat(ui.boneRotZ.value);
+
+    selectedBone.updateMatrix();
 }
 
 function loop() {
