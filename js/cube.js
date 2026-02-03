@@ -2,95 +2,72 @@
 
 import { Mat4 } from "./math.js";
 
-let nextID = 1;
-
 export class Cube {
     constructor() {
-        this.id = nextID++;
-        this.selected = false;
-
-        this.bone = null; // NEW
-
-        this.position = { x: 0, y: 1, z: 0 };
+        this.position = { x: 0, y: 0, z: 0 };
         this.rotation = { x: 0, y: 0, z: 0 };
         this.scale = { x: 1, y: 1, z: 1 };
 
-        this.lengthX = 2;
-        this.lengthY = 2;
-        this.lengthZ = 2;
+        this.lengthX = 1;
+        this.lengthY = 1;
+        this.lengthZ = 1;
 
-        this.modelMatrix = Mat4.identity();
+        this.vertices = null;
+        this.indices = null;
+        this.mesh = null;
+
+        this.localMatrix = Mat4.identity();
+        this.worldMatrix = Mat4.identity();
+        this.finalMatrix = Mat4.identity();
+
+        this.bone = null;
+        this.selected = false;
 
         this.generateGeometry();
     }
 
     generateGeometry() {
-        const lx = this.lengthX / 2;
-        const ly = this.lengthY / 2;
-        const lz = this.lengthZ / 2;
+        const x = this.lengthX / 2;
+        const y = this.lengthY / 2;
+        const z = this.lengthZ / 2;
 
         this.vertices = new Float32Array([
-            // Front
-            -lx, -ly,  lz,  0, 0,
-             lx, -ly,  lz,  1, 0,
-             lx,  ly,  lz,  1, 1,
-            -lx,  ly,  lz,  0, 1,
+            -x,-y,-z, 0,0,
+             x,-y,-z, 1,0,
+             x, y,-z, 1,1,
+            -x, y,-z, 0,1,
 
-            // Back
-            -lx, -ly, -lz,  1, 0,
-             lx, -ly, -lz,  0, 0,
-             lx,  ly, -lz,  0, 1,
-            -lx,  ly, -lz,  1, 1,
-
-            // Left
-            -lx, -ly, -lz,  0, 0,
-            -lx, -ly,  lz,  1, 0,
-            -lx,  ly,  lz,  1, 1,
-            -lx,  ly, -lz,  0, 1,
-
-            // Right
-             lx, -ly, -lz,  1, 0,
-             lx, -ly,  lz,  0, 0,
-             lx,  ly,  lz,  0, 1,
-             lx,  ly, -lz,  1, 1,
-
-            // Top
-            -lx,  ly,  lz,  0, 0,
-             lx,  ly,  lz,  1, 0,
-             lx,  ly, -lz,  1, 1,
-            -lx,  ly, -lz,  0, 1,
-
-            // Bottom
-            -lx, -ly,  lz,  0, 0,
-             lx, -ly,  lz,  1, 0,
-             lx, -ly, -lz,  1, 1,
-            -lx, -ly, -lz,  0, 1,
+            -x,-y, z, 0,0,
+             x,-y, z, 1,0,
+             x, y, z, 1,1,
+            -x, y, z, 0,1,
         ]);
 
         this.indices = new Uint16Array([
             0,1,2, 2,3,0,
             4,5,6, 6,7,4,
-            8,9,10, 10,11,8,
-            12,13,14, 14,15,12,
-            16,17,18, 18,19,16,
-            20,21,22, 22,23,20
+            0,4,7, 7,3,0,
+            1,5,6, 6,2,1,
+            3,2,6, 6,7,3,
+            0,1,5, 5,4,0
         ]);
     }
 
-    updateMatrix() {
+    updateLocalMatrix() {
         let m = Mat4.translation(this.position.x, this.position.y, this.position.z);
-
         m = Mat4.multiply(m, Mat4.rotationX(this.rotation.x));
         m = Mat4.multiply(m, Mat4.rotationY(this.rotation.y));
         m = Mat4.multiply(m, Mat4.rotationZ(this.rotation.z));
+        this.localMatrix = m;
+    }
 
-        m = Mat4.multiply(m, Mat4.scale(this.scale.x, this.scale.y, this.scale.z));
-
+    updateMatrix() {
+        this.updateLocalMatrix();
         if (this.bone) {
             this.bone.updateMatrix();
-            m = Mat4.multiply(this.bone.modelMatrix, m);
+            this.finalMatrix = Mat4.multiply(this.bone.worldMatrix, this.localMatrix);
+        } else {
+            this.finalMatrix = this.localMatrix;
         }
-
-        this.modelMatrix = m;
     }
 }
