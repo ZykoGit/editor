@@ -44,6 +44,14 @@ window.onload = () => {
     ui.lenY = document.getElementById("lenY");
     ui.lenZ = document.getElementById("lenZ");
 
+    ui.bonePosX = document.getElementById("bonePosX");
+    ui.bonePosY = document.getElementById("bonePosY");
+    ui.bonePosZ = document.getElementById("bonePosZ");
+
+    ui.boneRotX = document.getElementById("boneRotX");
+    ui.boneRotY = document.getElementById("boneRotY");
+    ui.boneRotZ = document.getElementById("boneRotZ");
+    
     ui.boneSelect = document.getElementById("boneSelect");
 
     ui.boneEditSelect = document.getElementById("boneEditSelect");
