@@ -153,6 +153,55 @@ export const Renderer = {
         gl.bindVertexArray(null);
     },
 
+    drawBone(bone, selected) {
+        if (!bone.parent) return;
+
+        const gl = this.gl;
+
+        const p = bone.worldMatrix;
+        const parent = bone.parent.worldMatrix;
+
+        const x = p[12], y = p[13], z = p[14];
+        const px = parent[12], py = parent[13], pz = parent[14];
+
+        const line = new Float32Array([
+            px, py, pz,
+            x, y, z
+        ]);
+
+        const vao = gl.createVertexArray();
+        gl.bindVertexArray(vao);
+
+        const vbo = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+        gl.bufferData(gl.ARRAY_BUFFER, line, gl.STATIC_DRAW);
+
+        const posLoc = gl.getAttribLocation(this.gridProgram, "position");
+        gl.enableVertexAttribArray(posLoc);
+        gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
+
+        gl.useProgram(this.gridProgram);
+
+        const uProjection = gl.getUniformLocation(this.gridProgram, "uProjection");
+        const uView = gl.getUniformLocation(this.gridProgram, "uView");
+        const uColor = gl.getUniformLocation(this.gridProgram, "uColor");
+
+        gl.uniformMatrix4fv(uProjection, false, this.getProjectionMatrix());
+        gl.uniformMatrix4fv(uView, false, this.getViewMatrix());
+
+        if (uColor) {
+            if (selected) {
+                gl.uniform3f(uColor, 1.0, 0.8, 0.2);
+            } else {
+                gl.uniform3f(uColor, 0.6, 0.6, 0.6);
+            }
+        }
+
+        gl.drawArrays(gl.LINES, 0, 2);
+
+        gl.bindVertexArray(null);
+    },
+
     drawCube(mesh, modelMatrix, selected) {
         const gl = this.gl;
 
@@ -172,53 +221,6 @@ export const Renderer = {
         gl.bindVertexArray(null);
     },
 
-drawBone(bone) {
-    const gl = this.gl;
-
-    const p = bone.modelMatrix;
-
-    const x = p[12];
-    const y = p[13];
-    const z = p[14];
-
-    const parent = bone.parent;
-
-    if (!parent) return;
-
-    const px = parent.modelMatrix[12];
-    const py = parent.modelMatrix[13];
-    const pz = parent.modelMatrix[14];
-
-    const line = new Float32Array([
-        px, py, pz,
-        x, y, z
-    ]);
-
-    const vao = gl.createVertexArray();
-    gl.bindVertexArray(vao);
-
-    const vbo = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, line, gl.STATIC_DRAW);
-
-    const posLoc = gl.getAttribLocation(this.gridProgram, "position");
-    gl.enableVertexAttribArray(posLoc);
-    gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 0, 0);
-
-    gl.useProgram(this.gridProgram);
-
-    const uProjection = gl.getUniformLocation(this.gridProgram, "uProjection");
-    const uView = gl.getUniformLocation(this.gridProgram, "uView");
-
-    gl.uniformMatrix4fv(uProjection, false, this.getProjectionMatrix());
-    gl.uniformMatrix4fv(uView, false, this.getViewMatrix());
-
-    gl.drawArrays(gl.LINES, 0, 2);
-
-    gl.bindVertexArray(null);
-}
-
-    
     vertexShaderSource() {
         return `
         attribute vec3 position;
@@ -276,8 +278,10 @@ drawBone(bone) {
         return `
         precision mediump float;
 
+        uniform vec3 uColor;
+
         void main() {
-            gl_FragColor = vec4(0.3, 0.3, 0.3, 1.0);
+            gl_FragColor = vec4(uColor, 1.0);
         }
         `;
     },
