@@ -3,6 +3,7 @@
 import { Renderer } from "./renderer.js";
 import { Cube } from "./cube.js";
 import { Bone } from "./bone.js";
+import { Gizmo } from "./gizmo.js";
 
 let scene = [];
 let bones = [];
@@ -15,7 +16,7 @@ let isDragging = false;
 let lastX = 0;
 let lastY = 0;
 
-let mode = "none";
+let mode = "none"; // "none" | "move" | "rotate" | "scale"
 
 let ui = {};
 
@@ -44,6 +45,8 @@ window.onload = () => {
     ui.lenY = document.getElementById("lenY");
     ui.lenZ = document.getElementById("lenZ");
 
+    ui.boneSelect = document.getElementById("boneSelect");
+
     ui.bonePosX = document.getElementById("bonePosX");
     ui.bonePosY = document.getElementById("bonePosY");
     ui.bonePosZ = document.getElementById("bonePosZ");
@@ -51,8 +54,6 @@ window.onload = () => {
     ui.boneRotX = document.getElementById("boneRotX");
     ui.boneRotY = document.getElementById("boneRotY");
     ui.boneRotZ = document.getElementById("boneRotZ");
-    
-    ui.boneSelect = document.getElementById("boneSelect");
 
     ui.boneEditSelect = document.getElementById("boneEditSelect");
     ui.boneParentSelect = document.getElementById("boneParentSelect");
@@ -95,33 +96,97 @@ window.onload = () => {
         if (bone) selectBone(bone);
     };
 
-    for (let key in ui) {
-        if (ui[key] instanceof HTMLInputElement) {
-            ui[key].addEventListener("input", applyUI);
-        }
-    }
+    ui.posX.addEventListener("input", applyCubeUI);
+    ui.posY.addEventListener("input", applyCubeUI);
+    ui.posZ.addEventListener("input", applyCubeUI);
+
+    ui.rotX.addEventListener("input", applyCubeUI);
+    ui.rotY.addEventListener("input", applyCubeUI);
+    ui.rotZ.addEventListener("input", applyCubeUI);
+
+    ui.scaleX.addEventListener("input", applyCubeUI);
+    ui.scaleY.addEventListener("input", applyCubeUI);
+    ui.scaleZ.addEventListener("input", applyCubeUI);
+
+    ui.lenX.addEventListener("input", applyCubeUI);
+    ui.lenY.addEventListener("input", applyCubeUI);
+    ui.lenZ.addEventListener("input", applyCubeUI);
+
+    ui.bonePosX.addEventListener("input", applyBoneUI);
+    ui.bonePosY.addEventListener("input", applyBoneUI);
+    ui.bonePosZ.addEventListener("input", applyBoneUI);
+
+    ui.boneRotX.addEventListener("input", applyBoneUI);
+    ui.boneRotY.addEventListener("input", applyBoneUI);
+    ui.boneRotZ.addEventListener("input", applyBoneUI);
 
     canvas.addEventListener("mousedown", e => {
+        const rect = Renderer.canvas.getBoundingClientRect();
+        const mx = e.clientX;
+        const my = e.clientY;
+
+        const targetPos = getSelectedWorldPos();
+        const axis = Gizmo.pickAxis(mx, my, targetPos);
+
+        if (axis) {
+            Gizmo.activeAxis = axis;
+            Gizmo.isDragging = true;
+            Gizmo.startMouse.x = mx;
+            Gizmo.startMouse.y = my;
+
+            if (selectedCube) {
+                Gizmo.startPos = { ...selectedCube.position };
+            } else if (selectedBone) {
+                Gizmo.startPos = { ...selectedBone.position };
+            }
+
+            return;
+        }
+
         if (mode === "none") {
-            if (!pickBone(e.clientX, e.clientY)) {
-                pickCube(e.clientX, e.clientY);
+            if (!pickBone(mx, my)) {
+                pickCube(mx, my);
             }
         }
 
         isDragging = true;
-        lastX = e.clientX;
-        lastY = e.clientY;
+        lastX = mx;
+        lastY = my;
     });
 
     window.addEventListener("mouseup", () => {
         isDragging = false;
+        Gizmo.isDragging = false;
+        Gizmo.activeAxis = null;
     });
 
     window.addEventListener("mousemove", e => {
+        const mx = e.clientX;
+        const my = e.clientY;
+
+        if (Gizmo.isDragging && Gizmo.activeAxis) {
+            const dx = (mx - Gizmo.startMouse.x) * 0.01;
+            const dy = (my - Gizmo.startMouse.y) * 0.01;
+
+            let delta = dx; // simple: use x movement only
+            if (selectedCube) {
+                if (Gizmo.activeAxis === "x") selectedCube.position.x = Gizmo.startPos.x + delta;
+                if (Gizmo.activeAxis === "y") selectedCube.position.y = Gizmo.startPos.y - dy;
+                if (Gizmo.activeAxis === "z") selectedCube.position.z = Gizmo.startPos.z + delta;
+                updateCubeUI();
+            } else if (selectedBone) {
+                if (Gizmo.activeAxis === "x") selectedBone.position.x = Gizmo.startPos.x + delta;
+                if (Gizmo.activeAxis === "y") selectedBone.position.y = Gizmo.startPos.y - dy;
+                if (Gizmo.activeAxis === "z") selectedBone.position.z = Gizmo.startPos.z + delta;
+                updateBoneUI();
+            }
+            return;
+        }
+
         if (!isDragging || !selectedCube) return;
 
-        const dx = (e.clientX - lastX) * 0.01;
-        const dy = (e.clientY - lastY) * 0.01;
+        const dx = (mx - lastX) * 0.01;
+        const dy = (my - lastY) * 0.01;
 
         if (mode === "move") {
             selectedCube.position.x += dx;
@@ -141,8 +206,8 @@ window.onload = () => {
 
         updateCubeUI();
 
-        lastX = e.clientX;
-        lastY = e.clientY;
+        lastX = mx;
+        lastY = my;
     });
 
     window.addEventListener("keydown", e => {
@@ -220,15 +285,8 @@ function selectBone(bone) {
     ui.boneEditSelect.value = bone.id;
     if (bone.parent) ui.boneParentSelect.value = bone.parent.id;
 
-    ui.bonePosX.value = bone.position.x.toFixed(2);
-    ui.bonePosY.value = bone.position.y.toFixed(2);
-    ui.bonePosZ.value = bone.position.z.toFixed(2);
-
-    ui.boneRotX.value = bone.rotation.x.toFixed(2);
-    ui.boneRotY.value = bone.rotation.y.toFixed(2);
-    ui.boneRotZ.value = bone.rotation.z.toFixed(2);
+    updateBoneUI();
 }
-
 
 function pickBone(mouseX, mouseY) {
     const rect = Renderer.canvas.getBoundingClientRect();
@@ -289,7 +347,7 @@ function pickCube(mouseX, mouseY) {
     if (closest) selectCube(closest);
 }
 
-function applyUI() {
+function applyCubeUI() {
     if (!selectedCube) return;
 
     selectedCube.position.x = parseFloat(ui.posX.value);
@@ -360,6 +418,32 @@ function applyBoneUI() {
     selectedBone.updateMatrix();
 }
 
+function updateBoneUI() {
+    if (!selectedBone) return;
+
+    ui.bonePosX.value = selectedBone.position.x.toFixed(2);
+    ui.bonePosY.value = selectedBone.position.y.toFixed(2);
+    ui.bonePosZ.value = selectedBone.position.z.toFixed(2);
+
+    ui.boneRotX.value = selectedBone.rotation.x.toFixed(2);
+    ui.boneRotY.value = selectedBone.rotation.y.toFixed(2);
+    ui.boneRotZ.value = selectedBone.rotation.z.toFixed(2);
+}
+
+function getSelectedWorldPos() {
+    if (selectedCube) {
+        selectedCube.updateMatrix();
+        const m = selectedCube.finalMatrix;
+        return [m[12], m[13], m[14]];
+    }
+    if (selectedBone) {
+        selectedBone.updateMatrix();
+        const m = selectedBone.worldMatrix;
+        return [m[12], m[13], m[14]];
+    }
+    return null;
+}
+
 function loop() {
     const gl = Renderer.gl;
 
@@ -380,6 +464,9 @@ function loop() {
         cube.updateMatrix();
         Renderer.drawCube(cube.mesh, cube.finalMatrix, cube.selected);
     }
+
+    const targetPos = getSelectedWorldPos();
+    Gizmo.draw(targetPos);
 
     requestAnimationFrame(loop);
 }
