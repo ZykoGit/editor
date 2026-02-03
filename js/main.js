@@ -24,10 +24,10 @@ window.onload = () => {
 
     grid = Renderer.createGridMesh(40);
 
-    // Create root bone
+    // Root bone
     addBone("Root");
 
-    // Add first cube
+    // First cube
     addCube();
 
     // UI elements
@@ -140,8 +140,7 @@ function addCube() {
 
     cube.mesh = Renderer.createMesh(cube.vertices, cube.indices);
 
-    // Assign cube to root bone
-    cube.bone = bones[0];
+    cube.bone = bones[0]; // assign to root
 
     scene.push(cube);
     selectCube(cube);
@@ -250,6 +249,12 @@ function loop() {
 
     Renderer.drawGrid(grid);
 
+    // ⭐ Draw bones
+    for (let bone of bones) {
+        Renderer.drawBone(bone);
+    }
+
+    // Draw cubes
     for (let cube of scene) {
         cube.updateMatrix();
         Renderer.drawCube(cube.mesh, cube.finalMatrix, cube.selected);
