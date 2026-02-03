@@ -6,7 +6,8 @@ import { Bone } from "./bone.js";
 
 let scene = [];
 let bones = [];
-let selected = null;
+let selectedCube = null;
+let selectedBone = null;
 
 let grid;
 
@@ -24,13 +25,9 @@ window.onload = () => {
 
     grid = Renderer.createGridMesh(40);
 
-    // Root bone
-    addBone("Root");
-
-    // First cube
+    const root = addBone("Root");
     addCube();
 
-    // UI elements
     ui.posX = document.getElementById("posX");
     ui.posY = document.getElementById("posY");
     ui.posZ = document.getElementById("posZ");
@@ -49,13 +46,45 @@ window.onload = () => {
 
     ui.boneSelect = document.getElementById("boneSelect");
 
+    ui.boneEditSelect = document.getElementById("boneEditSelect");
+    ui.boneParentSelect = document.getElementById("boneParentSelect");
+    ui.boneName = document.getElementById("boneName");
+
     document.getElementById("addCube").onclick = addCube;
 
+    document.getElementById("addBone").onclick = () => {
+        const name = ui.boneName.value || "Bone";
+        const bone = addBone(name);
+        bone.parent = bones[0];
+        bones[0].children.push(bone);
+        refreshBoneDropdowns();
+    };
+
+    document.getElementById("setParent").onclick = () => {
+        const boneID = parseInt(ui.boneEditSelect.value);
+        const parentID = parseInt(ui.boneParentSelect.value);
+
+        const bone = bones.find(b => b.id === boneID);
+        const parent = bones.find(b => b.id === parentID) || null;
+
+        if (!bone) return;
+        if (parent === bone) return;
+        if (parent && parent.isDescendantOf(bone)) return;
+
+        bone.setParent(parent);
+    };
+
     ui.boneSelect.onchange = () => {
-        if (selected) {
+        if (selectedCube) {
             const boneID = parseInt(ui.boneSelect.value);
-            selected.bone = bones.find(b => b.id === boneID);
+            selectedCube.bone = bones.find(b => b.id === boneID) || null;
         }
+    };
+
+    ui.boneEditSelect.onchange = () => {
+        const boneID = parseInt(ui.boneEditSelect.value);
+        const bone = bones.find(b => b.id === boneID);
+        if (bone) selectBone(bone);
     };
 
     for (let key in ui) {
@@ -64,9 +93,12 @@ window.onload = () => {
         }
     }
 
-    // Mouse picking
     canvas.addEventListener("mousedown", e => {
-        if (mode === "none") pickCube(e.clientX, e.clientY);
+        if (mode === "none") {
+            if (!pickBone(e.clientX, e.clientY)) {
+                pickCube(e.clientX, e.clientY);
+            }
+        }
 
         isDragging = true;
         lastX = e.clientX;
@@ -78,34 +110,33 @@ window.onload = () => {
     });
 
     window.addEventListener("mousemove", e => {
-        if (!isDragging || !selected) return;
+        if (!isDragging || !selectedCube) return;
 
         const dx = (e.clientX - lastX) * 0.01;
         const dy = (e.clientY - lastY) * 0.01;
 
         if (mode === "move") {
-            selected.position.x += dx;
-            selected.position.z += dy;
+            selectedCube.position.x += dx;
+            selectedCube.position.z += dy;
         }
 
         if (mode === "rotate") {
-            selected.rotation.y += dx;
-            selected.rotation.x += dy;
+            selectedCube.rotation.y += dx;
+            selectedCube.rotation.x += dy;
         }
 
         if (mode === "scale") {
-            selected.scale.x += dx;
-            selected.scale.y += dx;
-            selected.scale.z += dx;
+            selectedCube.scale.x += dx;
+            selectedCube.scale.y += dx;
+            selectedCube.scale.z += dx;
         }
 
-        updateUI();
+        updateCubeUI();
 
         lastX = e.clientX;
         lastY = e.clientY;
     });
 
-    // Keyboard shortcuts
     window.addEventListener("keydown", e => {
         if (e.key === "g") mode = "move";
         if (e.key === "r") mode = "rotate";
@@ -113,23 +144,36 @@ window.onload = () => {
         if (e.key === "Escape") mode = "none";
     });
 
+    refreshBoneDropdowns();
     requestAnimationFrame(loop);
 };
 
 function addBone(name) {
     const bone = new Bone(name);
     bones.push(bone);
-    refreshBoneDropdown();
     return bone;
 }
 
-function refreshBoneDropdown() {
+function refreshBoneDropdowns() {
     ui.boneSelect.innerHTML = "";
+    ui.boneEditSelect.innerHTML = "";
+    ui.boneParentSelect.innerHTML = "";
+
     for (let bone of bones) {
-        const opt = document.createElement("option");
-        opt.value = bone.id;
-        opt.textContent = bone.name;
-        ui.boneSelect.appendChild(opt);
+        const opt1 = document.createElement("option");
+        opt1.value = bone.id;
+        opt1.textContent = bone.name;
+        ui.boneSelect.appendChild(opt1);
+
+        const opt2 = document.createElement("option");
+        opt2.value = bone.id;
+        opt2.textContent = bone.name;
+        ui.boneEditSelect.appendChild(opt2);
+
+        const opt3 = document.createElement("option");
+        opt3.value = bone.id;
+        opt3.textContent = bone.name;
+        ui.boneParentSelect.appendChild(opt3);
     }
 }
 
@@ -140,19 +184,70 @@ function addCube() {
 
     cube.mesh = Renderer.createMesh(cube.vertices, cube.indices);
 
-    cube.bone = bones[0]; // assign to root
+    cube.bone = bones[0];
 
     scene.push(cube);
     selectCube(cube);
 }
 
 function selectCube(cube) {
-    if (selected) selected.selected = false;
+    if (selectedCube) selectedCube.selected = false;
+    if (selectedBone) selectedBone.selected = false;
 
-    selected = cube;
-    selected.selected = true;
+    selectedCube = cube;
+    selectedCube.selected = true;
+    selectedBone = null;
 
-    updateUI();
+    updateCubeUI();
+}
+
+function selectBone(bone) {
+    if (selectedCube) selectedCube.selected = false;
+    if (selectedBone) selectedBone.selected = false;
+
+    selectedCube = null;
+    selectedBone = bone;
+    bone.selected = true;
+
+    ui.boneEditSelect.value = bone.id;
+    if (bone.parent) {
+        ui.boneParentSelect.value = bone.parent.id;
+    }
+}
+
+function pickBone(mouseX, mouseY) {
+    const rect = Renderer.canvas.getBoundingClientRect();
+
+    const x = (mouseX - rect.left) / rect.width * 2 - 1;
+    const y = -((mouseY - rect.top) / rect.height * 2 - 1);
+
+    let closest = null;
+    let closestDist = 0.05;
+
+    for (let bone of bones) {
+        if (!bone.parent) continue;
+
+        const p = bone.worldMatrix;
+        const bx = p[12] * 0.1;
+        const by = p[13] * 0.1;
+
+        const dx = x - bx;
+        const dy = y - by;
+
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < closestDist) {
+            closestDist = dist;
+            closest = bone;
+        }
+    }
+
+    if (closest) {
+        selectBone(closest);
+        return true;
+    }
+
+    return false;
 }
 
 function pickCube(mouseX, mouseY) {
@@ -180,59 +275,59 @@ function pickCube(mouseX, mouseY) {
 }
 
 function applyUI() {
-    if (!selected) return;
+    if (!selectedCube) return;
 
-    selected.position.x = parseFloat(ui.posX.value);
-    selected.position.y = parseFloat(ui.posY.value);
-    selected.position.z = parseFloat(ui.posZ.value);
+    selectedCube.position.x = parseFloat(ui.posX.value);
+    selectedCube.position.y = parseFloat(ui.posY.value);
+    selectedCube.position.z = parseFloat(ui.posZ.value);
 
-    selected.rotation.x = parseFloat(ui.rotX.value);
-    selected.rotation.y = parseFloat(ui.rotY.value);
-    selected.rotation.z = parseFloat(ui.rotZ.value);
+    selectedCube.rotation.x = parseFloat(ui.rotX.value);
+    selectedCube.rotation.y = parseFloat(ui.rotY.value);
+    selectedCube.rotation.z = parseFloat(ui.rotZ.value);
 
-    selected.scale.x = parseFloat(ui.scaleX.value);
-    selected.scale.y = parseFloat(ui.scaleY.value);
-    selected.scale.z = parseFloat(ui.scaleZ.value);
+    selectedCube.scale.x = parseFloat(ui.scaleX.value);
+    selectedCube.scale.y = parseFloat(ui.scaleY.value);
+    selectedCube.scale.z = parseFloat(ui.scaleZ.value);
 
-    const oldX = selected.lengthX;
-    const oldY = selected.lengthY;
-    const oldZ = selected.lengthZ;
+    const oldX = selectedCube.lengthX;
+    const oldY = selectedCube.lengthY;
+    const oldZ = selectedCube.lengthZ;
 
-    selected.lengthX = parseFloat(ui.lenX.value);
-    selected.lengthY = parseFloat(ui.lenY.value);
-    selected.lengthZ = parseFloat(ui.lenZ.value);
+    selectedCube.lengthX = parseFloat(ui.lenX.value);
+    selectedCube.lengthY = parseFloat(ui.lenY.value);
+    selectedCube.lengthZ = parseFloat(ui.lenZ.value);
 
-    if (selected.lengthX !== oldX || selected.lengthY !== oldY || selected.lengthZ !== oldZ) {
-        selected.generateGeometry();
-        selected.mesh = Renderer.createMesh(selected.vertices, selected.indices);
+    if (selectedCube.lengthX !== oldX || selectedCube.lengthY !== oldY || selectedCube.lengthZ !== oldZ) {
+        selectedCube.generateGeometry();
+        selectedCube.mesh = Renderer.createMesh(selectedCube.vertices, selectedCube.indices);
     }
 
-    if (selected.bone) {
-        ui.boneSelect.value = selected.bone.id;
+    if (selectedCube.bone) {
+        ui.boneSelect.value = selectedCube.bone.id;
     }
 }
 
-function updateUI() {
-    if (!selected) return;
+function updateCubeUI() {
+    if (!selectedCube) return;
 
-    ui.posX.value = selected.position.x.toFixed(2);
-    ui.posY.value = selected.position.y.toFixed(2);
-    ui.posZ.value = selected.position.z.toFixed(2);
+    ui.posX.value = selectedCube.position.x.toFixed(2);
+    ui.posY.value = selectedCube.position.y.toFixed(2);
+    ui.posZ.value = selectedCube.position.z.toFixed(2);
 
-    ui.rotX.value = selected.rotation.x.toFixed(2);
-    ui.rotY.value = selected.rotation.y.toFixed(2);
-    ui.rotZ.value = selected.rotation.z.toFixed(2);
+    ui.rotX.value = selectedCube.rotation.x.toFixed(2);
+    ui.rotY.value = selectedCube.rotation.y.toFixed(2);
+    ui.rotZ.value = selectedCube.rotation.z.toFixed(2);
 
-    ui.scaleX.value = selected.scale.x.toFixed(2);
-    ui.scaleY.value = selected.scale.y.toFixed(2);
-    ui.scaleZ.value = selected.scale.z.toFixed(2);
+    ui.scaleX.value = selectedCube.scale.x.toFixed(2);
+    ui.scaleY.value = selectedCube.scale.y.toFixed(2);
+    ui.scaleZ.value = selectedCube.scale.z.toFixed(2);
 
-    ui.lenX.value = selected.lengthX.toFixed(2);
-    ui.lenY.value = selected.lengthY.toFixed(2);
-    ui.lenZ.value = selected.lengthZ.toFixed(2);
+    ui.lenX.value = selectedCube.lengthX.toFixed(2);
+    ui.lenY.value = selectedCube.lengthY.toFixed(2);
+    ui.lenZ.value = selectedCube.lengthZ.toFixed(2);
 
-    if (selected.bone) {
-        ui.boneSelect.value = selected.bone.id;
+    if (selectedCube.bone) {
+        ui.boneSelect.value = selectedCube.bone.id;
     }
 }
 
@@ -242,19 +337,16 @@ function loop() {
     gl.clearColor(0.1, 0.1, 0.1, 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    // Update bone hierarchy
     for (let bone of bones) {
         if (!bone.parent) bone.updateMatrix();
     }
 
     Renderer.drawGrid(grid);
 
-    // ⭐ Draw bones
     for (let bone of bones) {
-        Renderer.drawBone(bone);
+        Renderer.drawBone(bone, bone.selected);
     }
 
-    // Draw cubes
     for (let cube of scene) {
         cube.updateMatrix();
         Renderer.drawCube(cube.mesh, cube.finalMatrix, cube.selected);
