@@ -21,20 +21,11 @@ export class Bone {
         this.selected = false;
     }
 
-    addChild(child) {
-        if (child.parent) {
-            const i = child.parent.children.indexOf(child);
-            if (i !== -1) child.parent.children.splice(i, 1);
-        }
-        child.parent = this;
-        this.children.push(child);
-    }
-
     isDescendantOf(bone) {
-        let current = this.parent;
-        while (current) {
-            if (current === bone) return true;
-            current = current.parent;
+        let p = this.parent;
+        while (p) {
+            if (p === bone) return true;
+            p = p.parent;
         }
         return false;
     }
@@ -43,27 +34,23 @@ export class Bone {
         if (newParent === this) return;
         if (newParent && newParent.isDescendantOf(this)) return;
 
-        const oldParent = this.parent;
-        if (oldParent) {
-            const i = oldParent.children.indexOf(this);
-            if (i !== -1) oldParent.children.splice(i, 1);
-        }
-
-        // keep world position
         this.updateMatrix();
-        const oldWorld = this.worldMatrix;
+        const oldWorld = this.worldMatrix.slice();
+
+        if (this.parent) {
+            const i = this.parent.children.indexOf(this);
+            if (i !== -1) this.parent.children.splice(i, 1);
+        }
 
         this.parent = newParent;
         if (newParent) newParent.children.push(this);
 
-        const parentWorldInv = newParent ? Mat4.invert(newParent.worldMatrix) : Mat4.identity();
-        this.modelMatrix = Mat4.multiply(parentWorldInv, oldWorld);
+        const parentInv = newParent ? Mat4.invert(newParent.worldMatrix) : Mat4.identity();
+        this.modelMatrix = Mat4.multiply(parentInv, oldWorld);
 
-        // decompose back to pos/rot (simple: we only stored translation/rotation)
         this.position.x = this.modelMatrix[12];
         this.position.y = this.modelMatrix[13];
         this.position.z = this.modelMatrix[14];
-        // rotations not perfectly recovered here, but good enough for now
     }
 
     updateMatrix() {
